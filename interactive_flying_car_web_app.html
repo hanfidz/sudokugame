@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SKYRIDER X // Next-Gen Flying Car Experience</title>
+    <!-- Tailwind CSS for rapid styling & layout -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts: Space Grotesk & Syne for maximum Gen-Z futuristic vibe -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        syne: ['Syne', 'sans-serif'],
+                        space: ['Space Grotesk', 'sans-serif'],
+                    },
+                    colors: {
+                        neonGreen: '#00FF66',
+                        neonPurple: '#BD00FF',
+                        neonCyan: '#00F0FF',
+                        darkBg: '#080810',
+                        cardBg: 'rgba(255, 255, 255, 0.03)',
+                    },
+                    animation: {
+                        'float': 'float 6s ease-in-out infinite',
+                        'glow-pulse': 'glowPulse 3s infinite alternate',
+                        'spin-slow': 'spin 12s linear infinite',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0px) rotate(0deg)' },
+                            '50%': { transform: 'translateY(-20px) rotate(2deg)' },
+                        },
+                        glowPulse: {
+                            '0%': { boxShadow: '0 0 15px rgba(0, 240, 255, 0.4)' },
+                            '100%': { boxShadow: '0 0 40px rgba(189, 0, 255, 0.8)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #080810;
+            color: #ffffff;
+            font-family: 'Space Grotesk', sans-serif;
+            overflow-x: hidden;
+            cursor: default;
+        }
+
+        /* Custom Cursor Stalker */
+        .cursor-dot, .cursor-circle {
+            pointer-events: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            border-radius: 50%;
+            z-index: 9999;
+            transition: transform 0.1s ease-out;
+        }
+        .cursor-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #00FF66;
+        }
+        .cursor-circle {
+            width: 40px;
+            height: 40px;
+            border: 1px solid rgba(0, 240, 255, 0.6);
+            transition: transform 0.25s ease-out, width 0.2s, height 0.2s, background-color 0.2s;
+        }
+
+        /* Glassmorphic Cards */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .glass-card:hover {
+            border-color: rgba(0, 240, 255, 0.4);
+        }
+
+        /* Dynamic Glow Text */
+        .gradient-text {
+            background: linear-gradient(135deg, #00FF66 0%, #00F0FF 50%, #BD00FF 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* Hide scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #080810;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #222;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #00FF66;
+        }
+
+        /* Magnet Button Effect */
+        .interactive-hover {
+            transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        /* Scanning Line Animation */
+        .scan-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #00F0FF, transparent);
+            opacity: 0.7;
+            animation: scan 4s linear infinite;
+        }
+        @keyframes scan {
+            0% { top: 0%; }
+            100% { top: 100%; }
+        }
+    </style>
+</head>
+<body class="relative min-h-screen">
+
+    <!-- Interactive Canvas Background for Particles -->
+    <canvas id="particleCanvas" class="fixed inset-0 pointer-events-none z-0"></canvas>
+
+    <!-- Custom Glowing Cursor -->
+    <div class="cursor-dot" id="cursorDot"></div>
+    <div class="cursor-circle" id="cursorCircle"></div>
+
+    <!-- Navigation Header -->
+    <nav class="fixed top-0 left-0 right-0 z-50 px-6 py-4 flex justify-between items-center backdrop-blur-md border-b border-white/10">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-neonGreen to-neonCyan flex items-center justify-center font-syne font-extrabold text-black text-xl animate-spin-slow">
+                X
+            </div>
+            <span class="font-syne text-2xl font-extrabold tracking-wider">AERO<span class="text-neonCyan">//</span>X</span>
+        </div>
+
+        <div class="hidden md:flex space-x-8 font-semibold text-sm tracking-wide">
+            <a href="#specs" class="hover:text-neonGreen transition-colors flex items-center gap-1"><i data-lucide="zap" class="w-4 h-4"></i> SPECS</a>
+            <a href="#experience" class="hover:text-neonCyan transition-colors flex items-center gap-1"><i data-lucide="eye" class="w-4 h-4"></i> EXPERIENCE</a>
+            <a href="#customizer" class="hover:text-neonPurple transition-colors flex items-center gap-1"><i data-lucide="sliders" class="w-4 h-4"></i> BUILD YOURS</a>
+        </div>
+
+        <div class="flex items-center gap-4">
+            <button id="audioToggleBtn" class="p-2 rounded-full glass-card hover:bg-white/10 transition-all text-xs flex items-center gap-2 border border-white/20">
+                <i data-lucide="volume-x" id="audioIcon" class="w-4 h-4 text-neonGreen"></i>
+                <span class="hidden sm:inline font-mono">SFX: OFF</span>
+            </button>
+            <a href="#testdrive" class="px-5 py-2.5 rounded-full bg-neonGreen text-black font-bold font-syne hover:bg-neonCyan hover:scale-105 transition-all shadow-[0_0_20px_rgba(0,255,102,0.4)] interactive-hover flex items-center gap-2">
+                <span>FLIGHT DEMO</span>
+                <i data-lucide="arrow-up-right" class="w-4 h-4"></i>
+            </a>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="relative min-h-screen pt-28 pb-16 px-6 flex flex-col justify-center items-center text-center overflow-hidden z-10">
+        <!-- Floating Badge -->
+        <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-card border border-neonCyan/30 text-neonCyan text-xs tracking-widest font-mono uppercase mb-6 animate-pulse">
+            <span class="w-2 h-2 rounded-full bg-neonGreen animate-ping"></span>
+            GEN-Z URBAN VTOL CONCEPT 2027
+        </div>
+
+        <h1 class="font-syne text-6xl md:text-8xl lg:text-9xl font-black tracking-tight leading-none mb-6">
+            DITCH THE <span class="gradient-text">TRAFFIC.</span><br/>
+            OWN THE SKY.
+        </h1>
+
+        <p class="max-w-2xl text-gray-400 text-lg md:text-xl font-light mb-10 leading-relaxed">
+            Zero gridlock. Pure adrenaline. Autonomous quad-thruster technology designed for flexers, visionaries, and boundary breakers.
+        </p>
+
+        <!-- Main Interactive 3D Card / Flying Car Visual Container -->
+        <div class="relative w-full max-w-4xl h-80 md:h-[420px] my-4 rounded-3xl glass-card border border-white/20 p-4 flex items-center justify-center overflow-hidden group perspective-1000" id="heroCard">
+            <div class="scan-line"></div>
+            
+            <!-- Dynamic Hover Radial Gradient -->
+            <div id="glowFollow" class="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" style="background: radial-gradient(600px circle at var(--x, 50%) var(--y, 50%), rgba(0,240,255,0.15), transparent 40%);"></div>
+
+            <!-- Vector Graphic SVG Flying Car Representation -->
+            <div class="relative z-10 animate-float transition-transform duration-200 ease-out" id="carObject">
+                <svg width="480" height="220" viewBox="0 0 500 240" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full max-w-lg filter drop-shadow-[0_20px_30px_rgba(0,240,255,0.3)]">
+                    <!-- Aerodynamic Body -->
+                    <path d="M50 130 C100 130 140 70 260 70 C380 70 430 110 470 120 C480 140 460 160 410 165 C260 175 120 170 50 130 Z" fill="url(#carBodyGrad)" stroke="#00F0FF" stroke-width="2"/>
+                    <!-- Glass Canopy -->
+                    <path d="M160 75 C200 45 310 45 360 80 C320 85 220 85 160 75 Z" fill="url(#canopyGrad)" opacity="0.8" stroke="#00FF66" stroke-width="1.5"/>
+                    <!-- Thruster Glow Left Front -->
+                    <ellipse cx="110" cy="165" rx="35" ry="8" fill="#BD00FF" opacity="0.8" class="animate-pulse"/>
+                    <ellipse cx="110" cy="165" rx="15" ry="3" fill="#00FF66"/>
+                    <!-- Thruster Glow Right Rear -->
+                    <ellipse cx="380" cy="165" rx="40" ry="10" fill="#00F0FF" opacity="0.8" class="animate-pulse"/>
+                    <ellipse cx="380" cy="165" rx="18" ry="4" fill="#FFFFFF"/>
+                    <!-- Wing Blade Extensions -->
+                    <path d="M 210 110 L 120 40 L 150 40 L 230 105 Z" fill="#111" stroke="#BD00FF" stroke-width="2"/>
+                    <path d="M 290 110 L 380 40 L 410 40 L 310 105 Z" fill="#111" stroke="#BD00FF" stroke-width="2"/>
+                    <!-- Neon Underglow Stripe -->
+                    <path d="M 80 145 Q 250 165 430 140" stroke="#00FF66" stroke-width="4" stroke-linecap="round" class="filter drop-shadow-[0_0_8px_#00FF66]"/>
+
+                    <defs>
+                        <linearGradient id="carBodyGrad" x1="0" y1="0" x2="500" y2="240" gradientUnits="userSpaceOnUse">
+                            <stop offset="0%" stop-color="#121324"/>
+                            <stop offset="50%" stop-color="#1A1C38"/>
+                            <stop offset="100%" stop-color="#0A0B14"/>
+                        </linearGradient>
+                        <linearGradient id="canopyGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="#00F0FF" stop-opacity="0.6"/>
+                            <stop offset="100%" stop-color="#BD00FF" stop-opacity="0.2"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+            </div>
+
+            <!-- Interactive HUD overlay elements -->
+            <div class="absolute top-6 left-6 font-mono text-xs text-neonCyan flex flex-col items-start gap-1">
+                <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-neonGreen"></span> SYS: ONLINE</span>
+                <span class="text-gray-400">ALTITUDE: <span id="hudAltitude">1,240</span> FT</span>
+                <span class="text-gray-400">THRUST: <span id="hudThrust">98.4</span>%</span>
+            </div>
+            
+            <div class="absolute bottom-6 right-6 font-mono text-xs text-neonPurple flex flex-col items-end gap-1">
+                <span>VECTORING: ACTIVE</span>
+                <span class="text-gray-400">MODE: HYPER-SPORT</span>
+            </div>
+
+            <div class="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-gray-500 font-mono tracking-widest uppercase">
+                [ Move Mouse To Tilt & Scan Vehicle ]
+            </div>
+        </div>
+
+        <!-- Quick Stats Banner -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 w-full max-w-4xl mt-6">
+            <div class="p-4 rounded-2xl glass-card text-center hover:scale-105 transition-transform">
+                <div class="font-syne text-3xl font-extrabold text-neonGreen">320 MPH</div>
+                <div class="text-xs text-gray-400 font-mono mt-1">TOP SPEED</div>
+            </div>
+            <div class="p-4 rounded-2xl glass-card text-center hover:scale-105 transition-transform">
+                <div class="font-syne text-3xl font-extrabold text-neonCyan">450 MILES</div>
+                <div class="text-xs text-gray-400 font-mono mt-1">RANGE / CHARGE</div>
+            </div>
+            <div class="p-4 rounded-2xl glass-card text-center hover:scale-105 transition-transform">
+                <div class="font-syne text-3xl font-extrabold text-neonPurple">1.8 SEC</div>
+                <div class="text-xs text-gray-400 font-mono mt-1">0-100 VERTICAL</div>
+            </div>
+            <div class="p-4 rounded-2xl glass-card text-center hover:scale-105 transition-transform">
+                <div class="font-syne text-3xl font-extrabold text-white">AI-PILOT</div>
+                <div class="text-xs text-gray-400 font-mono mt-1">AUTONOMOUS L4</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Interactive Features Section -->
+    <section id="specs" class="py-24 px-6 max-w-7xl mx-auto relative z-10">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-16 gap-4">
+            <div>
+                <h2 class="text-xs font-mono text-neonGreen tracking-widest uppercase mb-2">// HARDWARE ARCHITECTURE</h2>
+                <h3 class="font-syne text-4xl md:text-6xl font-extrabold">BUILT DIFFERENT.</h3>
+            </div>
+            <p class="text-gray-400 max-w-md text-sm">
+                Engineered for zero latency flight dynamics. Next-generation carbon-graphene composite frame tuned for maximum flex & durability.
+            </p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <!-- Feature Card 1 -->
+            <div class="p-8 rounded-3xl glass-card relative overflow-hidden group interactive-hover border border-white/10 hover:border-neonGreen/50 transition-all">
+                <div class="w-14 h-14 rounded-2xl bg-neonGreen/10 flex items-center justify-center text-neonGreen mb-6 group-hover:scale-110 transition-transform">
+                    <i data-lucide="cpu" class="w-7 h-7"></i>
+                </div>
+                <h4 class="font-syne text-2xl font-bold mb-3">Neural Flight OS</h4>
+                <p class="text-gray-400 text-sm leading-relaxed mb-6">
+                    Predicts turbulence before it hits. Real-time atmospheric AI calculation ensures smooth luxury glides through urban skylines.
+                </p>
+                <button class="spec-btn text-xs font-mono text-neonGreen flex items-center gap-2 group-hover:translate-x-2 transition-transform">
+                    <span>EXPLORE NEURAL CORE</span> &rarr;
+                </button>
+            </div>
+
+            <!-- Feature Card 2 -->
+            <div class="p-8 rounded-3xl glass-card relative overflow-hidden group interactive-hover border border-white/10 hover:border-neonCyan/50 transition-all">
+                <div class="w-14 h-14 rounded-2xl bg-neonCyan/10 flex items-center justify-center text-neonCyan mb-6 group-hover:scale-110 transition-transform">
+                    <i data-lucide="shield-check" class="w-7 h-7"></i>
+                </div>
+                <h4 class="font-syne text-2xl font-bold mb-3">Quantum Safe Canopy</h4>
+                <p class="text-gray-400 text-sm leading-relaxed mb-6">
+                    Triple-redundant ballistic parachute system and 360-degree LiDAR bubble protect against all mid-air obstacles.
+                </p>
+                <button class="spec-btn text-xs font-mono text-neonCyan flex items-center gap-2 group-hover:translate-x-2 transition-transform">
+                    <span>SAFETY MATRIX</span> &rarr;
+                </button>
+            </div>
+
+            <!-- Feature Card 3 -->
+            <div class="p-8 rounded-3xl glass-card relative overflow-hidden group interactive-hover border border-white/10 hover:border-neonPurple/50 transition-all">
+                <div class="w-14 h-14 rounded-2xl bg-neonPurple/10 flex items-center justify-center text-neonPurple mb-6 group-hover:scale-110 transition-transform">
+                    <i data-lucide="battery-charging" class="w-7 h-7"></i>
+                </div>
+                <h4 class="font-syne text-2xl font-bold mb-3">FlashCharge Grid</h4>
+                <p class="text-gray-400 text-sm leading-relaxed mb-6">
+                    80% battery replenishment in just 10 minutes at any urban sky-pad docking terminal across global megacities.
+                </p>
+                <button class="spec-btn text-xs font-mono text-neonPurple flex items-center gap-2 group-hover:translate-x-2 transition-transform">
+                    <span>POWER TECH</span> &rarr;
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Interactive Customizer Section -->
+    <section id="customizer" class="py-20 px-6 max-w-7xl mx-auto relative z-10">
+        <div class="p-8 md:p-12 rounded-3xl glass-card border border-white/20">
+            <div class="max-w-xl mb-10">
+                <span class="text-xs font-mono text-neonPurple tracking-widest uppercase">// CONFIGURATOR</span>
+                <h3 class="font-syne text-4xl font-extrabold mt-2">BUILD YOUR AERO-X</h3>
+                <p class="text-gray-400 text-sm mt-2">Customize your colorway and compute package. See real-time specs adjust.</p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+                <!-- Vehicle Preview Box -->
+                <div class="lg:col-span-7 flex flex-col items-center justify-center p-8 rounded-2xl bg-black/40 border border-white/10 relative" id="configuratorCanvasBox">
+                    <div id="customCarSvg" class="transition-all duration-500 transform hover:scale-105">
+                        <svg width="400" height="200" viewBox="0 0 500 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path id="customBody" d="M50 130 C100 130 140 70 260 70 C380 70 430 110 470 120 C480 140 460 160 410 165 C260 175 120 170 50 130 Z" fill="#00F0FF" opacity="0.9"/>
+                            <path d="M160 75 C200 45 310 45 360 80 C320 85 220 85 160 75 Z" fill="#ffffff" opacity="0.4"/>
+                            <ellipse cx="110" cy="165" rx="35" ry="8" id="customThruster1" fill="#00FF66"/>
+                            <ellipse cx="380" cy="165" rx="40" ry="10" id="customThruster2" fill="#00FF66"/>
+                        </svg>
+                    </div>
+
+                    <!-- Live Dynamic Price Badge -->
+                    <div class="mt-6 flex items-center justify-between w-full px-6 py-3 rounded-xl bg-white/5 font-mono text-sm">
+                        <span class="text-gray-400">ESTIMATED PRICE:</span>
+                        <span class="font-syne text-2xl font-bold text-neonGreen" id="totalPrice">$185,000</span>
+                    </div>
+                </div>
+
+                <!-- Controls -->
+                <div class="lg:col-span-5 space-y-8">
+                    <!-- Color Selection -->
+                    <div>
+                        <label class="block text-xs font-mono text-gray-400 uppercase tracking-wider mb-3">1. Select Skin Finish</label>
+                        <div class="flex gap-4">
+                            <button data-color="#00F0FF" data-price="0" class="color-btn w-12 h-12 rounded-full bg-[#00F0FF] border-2 border-white ring-2 ring-neonCyan scale-110 transition-all"></button>
+                            <button data-color="#BD00FF" data-price="5000" class="color-btn w-12 h-12 rounded-full bg-[#BD00FF] border-2 border-transparent hover:scale-105 transition-all"></button>
+                            <button data-color="#00FF66" data-price="3500" class="color-btn w-12 h-12 rounded-full bg-[#00FF66] border-2 border-transparent hover:scale-105 transition-all"></button>
+                            <button data-color="#FF3366" data-price="8000" class="color-btn w-12 h-12 rounded-full bg-[#FF3366] border-2 border-transparent hover:scale-105 transition-all"></button>
+                        </div>
+                    </div>
+
+                    <!-- Package Tiers -->
+                    <div>
+                        <label class="block text-xs font-mono text-gray-400 uppercase tracking-wider mb-3">2. Performance Package</label>
+                        <div class="space-y-3">
+                            <label class="flex items-center justify-between p-4 rounded-xl glass-card border border-white/10 cursor-pointer hover:border-neonCyan transition-all">
+                                <div class="flex items-center gap-3">
+                                    <input type="radio" name="package" value="standard" checked class="accent-neonCyan package-radio">
+                                    <div>
+                                        <div class="font-bold text-sm">City Glide (Standard)</div>
+                                        <div class="text-xs text-gray-400">Dual Thrusters • 250 MPH</div>
+                                    </div>
+                                </div>
+                                <span class="text-xs font-mono text-neonCyan">Included</span>
+                            </label>
+
+                            <label class="flex items-center justify-between p-4 rounded-xl glass-card border border-white/10 cursor-pointer hover:border-neonPurple transition-all">
+                                <div class="flex items-center gap-3">
+                                    <input type="radio" name="package" value="apex" class="accent-neonPurple package-radio">
+                                    <div>
+                                        <div class="font-bold text-sm">Apex Hyper-Drive</div>
+                                        <div class="text-xs text-gray-400">Quad Thrusters • 320 MPH</div>
+                                    </div>
+                                </div>
+                                <span class="text-xs font-mono text-neonPurple">+$25,000</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Action -->
+                    <button id="reserveBtn" class="w-full py-4 rounded-2xl bg-gradient-to-r from-neonGreen via-neonCyan to-neonPurple text-black font-syne font-black tracking-wider uppercase hover:opacity-90 hover:scale-[1.02] transition-all shadow-[0_0_30px_rgba(0,240,255,0.4)]">
+                        RESERVE ALLOCATION
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Interactive Test Drive Modal Simulation -->
+    <section id="testdrive" class="py-20 px-6 max-w-4xl mx-auto text-center relative z-10">
+        <div class="p-10 rounded-3xl glass-card border border-neonGreen/30 relative overflow-hidden">
+            <h3 class="font-syne text-4xl font-extrabold mb-4">READY TO TAKE FLIGHT?</h3>
+            <p class="text-gray-400 max-w-lg mx-auto mb-8 text-sm">
+                Book a virtual flight simulation session or schedule an in-person sky-pad test flight in San Francisco, Tokyo, or Dubai.
+            </p>
+
+            <form id="flightForm" class="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+                <div>
+                    <label class="block text-xs font-mono text-gray-400 mb-2 uppercase">PILOT NAME</label>
+                    <input type="text" required placeholder="Alex Vance" class="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-neonGreen outline-none text-sm transition-all">
+                </div>
+                <div>
+                    <label class="block text-xs font-mono text-gray-400 mb-2 uppercase">EMAIL ADDRESS</label>
+                    <input type="email" required placeholder="alex@cyber.io" class="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 focus:border-neonGreen outline-none text-sm transition-all">
+                </div>
+                <div>
+                    <label class="block text-xs font-mono text-gray-400 mb-2 uppercase">PREFERRED METROPOLIS</label>
+                    <select class="w-full px-4 py-3 rounded-xl bg-black border border-white/10 focus:border-neonGreen outline-none text-sm transition-all text-white">
+                        <option>NEO TOKYO SKY-PORT</option>
+                        <option>SAN FRANCISCO BAY POD</option>
+                        <option>DUBAI SKY TOWER 1</option>
+                        <option>LONDON AIR DOCK</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-mono text-gray-400 mb-2 uppercase">EXPERIENCE MODE</label>
+                    <select class="w-full px-4 py-3 rounded-xl bg-black border border-white/10 focus:border-neonGreen outline-none text-sm transition-all text-white">
+                        <option>FULL-AUTONOMOUS DEMO</option>
+                        <option>MANUAL JOYSTICK OVERRIDE</option>
+                    </select>
+                </div>
+                <div class="md:col-span-2 mt-4">
+                    <button type="submit" class="w-full py-4 rounded-xl bg-neonGreen text-black font-syne font-extrabold tracking-widest hover:bg-neonCyan transition-all">
+                        CONFIRM SIMULATION BOOKING
+                    </button>
+                </div>
+            </form>
+
+            <!-- Success Notification Message Box (Modal Substitute) -->
+            <div id="formSuccess" class="hidden absolute inset-0 bg-darkBg/95 backdrop-blur-xl flex flex-col items-center justify-center p-6 text-center z-20">
+                <div class="w-16 h-16 rounded-full bg-neonGreen/20 text-neonGreen flex items-center justify-center mb-4">
+                    <i data-lucide="check-circle-2" class="w-10 h-10"></i>
+                </div>
+                <h4 class="font-syne text-3xl font-bold mb-2">FLIGHT SLOT CONFIRMED</h4>
+                <p class="text-gray-400 text-sm max-w-sm mb-6">Check your inbox for your VR access pass and sky-dock coordinates.</p>
+                <button id="closeSuccess" class="px-6 py-2.5 rounded-full bg-white/10 hover:bg-white/20 text-xs font-mono transition-all">
+                    CLOSE WINDOW
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="py-12 px-6 border-t border-white/10 text-center md:text-left text-xs text-gray-500 font-mono relative z-10">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
+            <div class="flex items-center gap-3">
+                <span class="font-syne font-extrabold text-white text-lg">AERO-X INC.</span>
+                <span>© 2027 NEXT-GEN MOBILITY</span>
+            </div>
+            <div class="flex space-x-6">
+                <a href="#" class="hover:text-neonGreen transition-colors">PRIVACY OS</a>
+                <a href="#" class="hover:text-neonCyan transition-colors">FLIGHT PROTOCOLS</a>
+                <a href="#" class="hover:text-neonPurple transition-colors">TELEMETRY</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript Logic & Interactions -->
+    <script>
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // 1. Custom Mouse Cursor Stalker Reaction
+        const dot = document.getElementById('cursorDot');
+        const circle = document.getElementById('cursorCircle');
+        let mouseX = 0, mouseY = 0;
+        let circleX = 0, circleY = 0;
+
+        document.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+
+            dot.style.transform = `translate(${mouseX - 4}px, ${mouseY - 4}px)`;
+        });
+
+        function animateCursor() {
+            circleX += (mouseX - circleX) * 0.15;
+            circleY += (mouseY - circleY) * 0.15;
+            circle.style.transform = `translate(${circleX - 20}px, ${circleY - 20}px)`;
+            requestAnimationFrame(animateCursor);
+        }
+        animateCursor();
+
+        // Hover expansions on interactive elements
+        document.querySelectorAll('button, a, input, select, .glass-card').forEach(el => {
+            el.addEventListener('mouseenter', () => {
+                circle.style.width = '60px';
+                circle.style.height = '60px';
+                circle.style.backgroundColor = 'rgba(0, 240, 255, 0.1)';
+            });
+            el.addEventListener('mouseleave', () => {
+                circle.style.width = '40px';
+                circle.style.height = '40px';
+                circle.style.backgroundColor = 'transparent';
+            });
+        });
+
+        // 2. Interactive 3D Parallax & Radial Glow for Hero Card
+        const heroCard = document.getElementById('heroCard');
+        const carObject = document.getElementById('carObject');
+        const glowFollow = document.getElementById('glowFollow');
+        const hudAltitude = document.getElementById('hudAltitude');
+        const hudThrust = document.getElementById('hudThrust');
+
+        heroCard.addEventListener('mousemove', (e) => {
+            const rect = heroCard.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            // Radial Glow Position update
+            glowFollow.style.setProperty('--x', `${x}px`);
+            glowFollow.style.setProperty('--y', `${y}px`);
+
+            // Tilt calculations
+            const centerX = rect.width / 2;
+            const centerY = rect.height / 2;
+            const rotateX = ((y - centerY) / centerY) * -12;
+            const rotateY = ((x - centerX) / centerX) * 12;
+
+            heroCard.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+            carObject.style.transform = `translateZ(40px) translateY(${(y - centerY) * 0.05}px) rotate(${rotateY * 0.3}deg)`;
+
+            // HUD dynamic numbers reaction
+            hudAltitude.textContent = Math.floor(1200 + (y * 0.8));
+            hudThrust.textContent = (90 + (x * 0.02)).toFixed(1);
+        });
+
+        heroCard.addEventListener('mouseleave', () => {
+            heroCard.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg)`;
+            carObject.style.transform = `translateZ(0px) translateY(0px) rotate(0deg)`;
+        });
+
+        // 3. Web Audio SFX Synthesizer (No external audio files needed)
+        let sfxEnabled = false;
+        let audioCtx = null;
+
+        const audioToggleBtn = document.getElementById('audioToggleBtn');
+        const audioIcon = document.getElementById('audioIcon');
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playThrustSound(freq = 120, duration = 0.15) {
+            if (!sfxEnabled || !audioCtx) return;
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + duration);
+
+                gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch(e){}
+        }
+
+        audioToggleBtn.addEventListener('click', () => {
+            initAudio();
+            sfxEnabled = !sfxEnabled;
+            const textSpan = audioToggleBtn.querySelector('span');
+
+            if (sfxEnabled) {
+                audioIcon.setAttribute('data-lucide', 'volume-2');
+                textSpan.textContent = 'SFX: ON';
+                audioToggleBtn.classList.add('border-neonGreen');
+                playThrustSound(300, 0.2);
+            } else {
+                audioIcon.setAttribute('data-lucide', 'volume-x');
+                textSpan.textContent = 'SFX: OFF';
+                audioToggleBtn.classList.remove('border-neonGreen');
+            }
+            lucide.createIcons();
+        });
+
+        // Sound reaction on button clicks
+        document.querySelectorAll('button').forEach(btn => {
+            btn.addEventListener('click', () => playThrustSound(200, 0.1));
+        });
+
+        // 4. Interactive Car Customizer Logic
+        let basePrice = 185000;
+        let colorPrice = 0;
+        let packagePrice = 0;
+
+        const customBody = document.getElementById('customBody');
+        const totalPriceEl = document.getElementById('totalPrice');
+        const colorBtns = document.querySelectorAll('.color-btn');
+        const packageRadios = document.querySelectorAll('.package-radio');
+
+        colorBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Update selection UI
+                colorBtns.forEach(b => b.classList.remove('border-white', 'ring-2', 'scale-110'));
+                btn.classList.add('border-white', 'ring-2', 'scale-110');
+
+                // Color change
+                const hexColor = btn.getAttribute('data-color');
+                colorPrice = parseInt(btn.getAttribute('data-price'));
+                customBody.setAttribute('fill', hexColor);
+
+                updatePrice();
+                playThrustSound(240, 0.15);
+            });
+        });
+
+        packageRadios.forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                packagePrice = e.target.value === 'apex' ? 25000 : 0;
+                updatePrice();
+                playThrustSound(180, 0.15);
+            });
+        });
+
+        function updatePrice() {
+            const finalPrice = basePrice + colorPrice + packagePrice;
+            totalPriceEl.textContent = `$${finalPrice.toLocaleString()}`;
+        }
+
+        // 5. Test Drive Form Submission Simulation
+        const flightForm = document.getElementById('flightForm');
+        const formSuccess = document.getElementById('formSuccess');
+        const closeSuccess = document.getElementById('closeSuccess');
+
+        flightForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            playThrustSound(400, 0.3);
+            formSuccess.classList.remove('hidden');
+        });
+
+        closeSuccess.addEventListener('click', () => {
+            formSuccess.classList.add('hidden');
+            flightForm.reset();
+        });
+
+        // 6. Interactive Particle Canvas Background
+        const canvas = document.getElementById('particleCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        const particles = [];
+        const particleCount = 45;
+
+        for (let i = 0; i < particleCount; i++) {
+            particles.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                radius: Math.random() * 2 + 0.5,
+                color: Math.random() > 0.5 ? '#00F0FF' : '#BD00FF',
+                vx: (Math.random() - 0.5) * 0.4,
+                vy: (Math.random() - 0.5) * 0.4,
+                alpha: Math.random() * 0.5 + 0.2
+            });
+        }
+
+        function renderParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            particles.forEach(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+
+                if (p.x < 0) p.x = canvas.width;
+                if (p.x > canvas.width) p.x = 0;
+                if (p.y < 0) p.y = canvas.height;
+                if (p.y > canvas.height) p.y = 0;
+
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = p.alpha;
+                ctx.fill();
+            });
+
+            requestAnimationFrame(renderParticles);
+        }
+        renderParticles();
+    </script>
+</body>
+</html>
