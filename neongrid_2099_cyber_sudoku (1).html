@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NeonGrid 2099 - The Ultimate Cyber Sudoku</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <style>
+        :root {
+            --bg-dark: #03050c;
+            --neon-cyan: #00f0ff;
+            --neon-magenta: #ff007f;
+            --neon-yellow: #ffe600;
+            --neon-green: #00ff66;
+            --neon-purple: #b026ff;
+            --cell-bg: rgba(10, 16, 35, 0.75);
+        }
+
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background-color: var(--bg-dark);
+            color: #e2e8f0;
+            overflow-x: hidden;
+            touch-action: manipulation;
+            user-select: none;
+            -webkit-user-select: none;
+            min-height: 100vh;
+        }
+
+        .font-orbitron {
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        /* Animated background canvas */
+        #bg-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* Glassmorphism Cyber Panel */
+        .cyber-glass {
+            background: rgba(10, 15, 30, 0.7);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(0, 240, 255, 0.25);
+            box-shadow: 0 0 30px rgba(0, 240, 255, 0.15), inset 0 0 15px rgba(0, 240, 255, 0.05);
+        }
+
+        /* Cyber Holographic Outer Frame */
+        .cyber-frame {
+            position: relative;
+            background: linear-gradient(135deg, rgba(0,240,255,0.1) 0%, rgba(255,0,127,0.1) 100%);
+            padding: 12px;
+            border-radius: 24px;
+            box-shadow: 
+                0 0 40px rgba(0, 240, 255, 0.25),
+                0 0 80px rgba(255, 0, 127, 0.15),
+                inset 0 0 20px rgba(0, 240, 255, 0.2);
+            border: 1px solid rgba(0, 240, 255, 0.4);
+        }
+
+        .cyber-frame::before {
+            content: '';
+            position: absolute;
+            inset: -2px;
+            border-radius: 26px;
+            background: linear-gradient(90deg, var(--neon-cyan), var(--neon-magenta), var(--neon-yellow), var(--neon-cyan));
+            background-size: 300% 300%;
+            z-index: -1;
+            animation: glowBorder 6s linear infinite;
+            opacity: 0.6;
+            filter: blur(6px);
+        }
+
+        @keyframes glowBorder {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* Sudoku Grid Cells */
+        .sudoku-grid {
+            display: grid;
+            grid-template-columns: repeat(9, 1fr);
+            gap: 2px;
+            background: rgba(0, 240, 255, 0.3);
+            padding: 4px;
+            border-radius: 16px;
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.8);
+        }
+
+        .sudoku-cell {
+            aspect-ratio: 1;
+            background: var(--cell-bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            font-size: clamp(1rem, 4vw, 1.6rem);
+            cursor: pointer;
+            transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            border-radius: 4px;
+        }
+
+        /* Thick borders for 3x3 sub-grids */
+        .sudoku-cell:nth-child(3n) { border-right: 2px solid rgba(0, 240, 255, 0.8); }
+        .sudoku-cell:nth-child(9n) { border-right: none; }
+        .sudoku-cell:nth-child(n+19):nth-child(-n+27),
+        .sudoku-cell:nth-child(n+46):nth-child(-n+54) { border-bottom: 2px solid rgba(0, 240, 255, 0.8); }
+
+        /* Cell State Styles */
+        .sudoku-cell.given {
+            color: #ffffff;
+            font-weight: 900;
+            background: rgba(15, 23, 42, 0.95);
+        }
+
+        .sudoku-cell.user-input {
+            color: var(--neon-cyan);
+            text-shadow: 0 0 8px rgba(0, 240, 255, 0.8);
+        }
+
+        .sudoku-cell.selected {
+            background: rgba(0, 240, 255, 0.35) !important;
+            box-shadow: inset 0 0 12px var(--neon-cyan);
+            transform: scale(1.04);
+            z-index: 5;
+            border-radius: 6px;
+        }
+
+        .sudoku-cell.highlighted {
+            background: rgba(0, 240, 255, 0.12);
+        }
+
+        .sudoku-cell.same-num {
+            background: rgba(255, 0, 127, 0.25);
+            color: #fff;
+            text-shadow: 0 0 8px var(--neon-magenta);
+        }
+
+        .sudoku-cell.error {
+            background: rgba(255, 0, 85, 0.4) !important;
+            color: #ffffff !important;
+            animation: pulseError 0.4s ease-in-out;
+            text-shadow: 0 0 10px #ff0055;
+        }
+
+        @keyframes pulseError {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.12); }
+        }
+
+        /* Pencil Candidate Notes Inside Cells */
+        .notes-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            width: 100%;
+            height: 100%;
+            padding: 2px;
+            pointer-events: none;
+        }
+
+        .note-num {
+            font-size: clamp(0.45rem, 1.8vw, 0.65rem);
+            color: rgba(226, 232, 240, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Rajdhani', sans-serif;
+            font-weight: 600;
+        }
+
+        /* Cyber Buttons */
+        .btn-cyber {
+            position: relative;
+            background: linear-gradient(135deg, rgba(15,23,42,0.9), rgba(30,41,59,0.9));
+            border: 1px solid rgba(0, 240, 255, 0.4);
+            box-shadow: 0 0 10px rgba(0, 240, 255, 0.15);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+        }
+
+        .btn-cyber:hover {
+            border-color: var(--neon-cyan);
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .btn-cyber:active {
+            transform: scale(0.95);
+        }
+
+        .btn-cyber.active-mode {
+            background: linear-gradient(135deg, var(--neon-cyan), #0088ff);
+            color: #03050c;
+            font-weight: 800;
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.6);
+        }
+
+        /* Number Numpad Pads */
+        .numpad-btn {
+            aspect-ratio: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(0, 240, 255, 0.3);
+            border-radius: 12px;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            font-size: 1.25rem;
+            color: var(--neon-cyan);
+            transition: all 0.15s ease;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+
+        .numpad-btn:hover {
+            background: rgba(0, 240, 255, 0.2);
+            border-color: var(--neon-cyan);
+            transform: translateY(-2px);
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
+        }
+
+        .numpad-btn:active {
+            transform: scale(0.92);
+        }
+
+        .numpad-btn .count-badge {
+            font-size: 0.65rem;
+            color: rgba(255,255,255,0.5);
+            font-family: 'Rajdhani', sans-serif;
+            margin-top: -2px;
+        }
+
+        /* Glow Text Helpers */
+        .glow-cyan { text-shadow: 0 0 10px rgba(0, 240, 255, 0.8), 0 0 20px rgba(0, 240, 255, 0.4); }
+        .glow-magenta { text-shadow: 0 0 10px rgba(255, 0, 127, 0.8), 0 0 20px rgba(255, 0, 127, 0.4); }
+        .glow-yellow { text-shadow: 0 0 10px rgba(255, 230, 0, 0.8); }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: rgba(5, 10, 25, 0.8); }
+        ::-webkit-scrollbar-thumb { background: rgba(0, 240, 255, 0.4); border-radius: 3px; }
+    </style>
+</head>
+<body class="relative flex flex-col items-center justify-between p-2 md:p-6 min-h-screen text-slate-100">
+
+    <!-- Interactive Background Canvas -->
+    <canvas id="bg-canvas"></canvas>
+
+    <!-- Top Navigation Header -->
+    <header class="relative z-10 w-full max-w-4xl flex items-center justify-between p-3 md:p-4 cyber-glass rounded-2xl mb-4">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-fuchsia-600 flex items-center justify-center shadow-lg shadow-cyan-500/30">
+                <i class="fa-solid fa-braille text-xl text-slate-950 font-black"></i>
+            </div>
+            <div>
+                <h1 class="font-orbitron text-xl md:text-3xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-fuchsia-400 to-yellow-300">
+                    NEON<span class="text-cyan-400 glow-cyan">GRID</span> <span class="text-xs text-fuchsia-400 font-normal">2099</span>
+                </h1>
+                <p class="text-[10px] md:text-xs text-slate-400 tracking-widest hidden sm:block">THE ULTIMATE CYBERNETIC SUDOKU SYSTEM</p>
+            </div>
+        </div>
+
+        <!-- System Controls Header Buttons -->
+        <div class="flex items-center space-x-2">
+            <button id="btn-audio" class="p-2.5 rounded-xl cyber-glass hover:bg-slate-800 text-cyan-400 transition border border-cyan-500/30 text-sm">
+                <i id="audio-icon" class="fa-solid fa-volume-high"></i>
+            </button>
+            <button id="btn-theme" class="p-2.5 rounded-xl cyber-glass hover:bg-slate-800 text-fuchsia-400 transition border border-fuchsia-500/30 text-sm">
+                <i class="fa-solid fa-palette"></i>
+            </button>
+            <button id="btn-help" class="p-2.5 rounded-xl cyber-glass hover:bg-slate-800 text-yellow-400 transition border border-yellow-500/30 text-sm">
+                <i class="fa-solid fa-circle-info"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Game Workspace -->
+    <main class="relative z-10 w-full max-w-4xl grid grid-cols-1 lg:grid-cols-12 gap-5 items-start flex-1">
+        
+        <!-- Left Stats & Controller Side Panel -->
+        <div class="lg:col-span-4 flex flex-col gap-4 order-2 lg:order-1">
+            
+            <!-- Game Status HUD Card -->
+            <div class="cyber-glass p-4 rounded-2xl space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <div>
+                        <span class="text-[10px] font-orbitron text-slate-400 uppercase tracking-widest block">Kesukaran (Difficulty)</span>
+                        <span id="diff-badge" class="font-orbitron font-bold text-cyan-400 text-lg uppercase glow-cyan">SEDERHANA</span>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-[10px] font-orbitron text-slate-400 uppercase tracking-widest block">Masa (Timer)</span>
+                        <span id="timer-display" class="font-orbitron font-bold text-yellow-400 text-xl glow-yellow">00:00</span>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
+                        <span class="text-[10px] text-slate-400 block font-orbitron">MATA (SCORE)</span>
+                        <span id="score-display" class="font-orbitron text-lg font-bold text-fuchsia-400">002,450</span>
+                    </div>
+                    <div class="bg-slate-950/60 p-2.5 rounded-xl border border-slate-800">
+                        <span class="text-[10px] text-slate-400 block font-orbitron">KESALAHAN (MISTAKES)</span>
+                        <span id="mistake-display" class="font-orbitron text-lg font-bold text-rose-400">0 / 3</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Tools Panel -->
+            <div class="cyber-glass p-4 rounded-2xl grid grid-cols-4 gap-2">
+                <button id="tool-undo" class="btn-cyber py-3 flex flex-col items-center justify-center rounded-xl text-cyan-300">
+                    <i class="fa-solid fa-rotate-left text-lg mb-1"></i>
+                    <span class="text-[10px] font-orbitron">UNDU</span>
+                </button>
+                <button id="tool-erase" class="btn-cyber py-3 flex flex-col items-center justify-center rounded-xl text-rose-400">
+                    <i class="fa-solid fa-eraser text-lg mb-1"></i>
+                    <span class="text-[10px] font-orbitron">PADAM</span>
+                </button>
+                <button id="tool-notes" class="btn-cyber py-3 flex flex-col items-center justify-center rounded-xl text-yellow-300">
+                    <i class="fa-solid fa-pencil text-lg mb-1"></i>
+                    <span id="notes-status" class="text-[10px] font-orbitron">NOTA: OFF</span>
+                </button>
+                <button id="tool-hint" class="btn-cyber py-3 flex flex-col items-center justify-center rounded-xl text-fuchsia-400 relative">
+                    <i class="fa-solid fa-wand-magic-sparkles text-lg mb-1"></i>
+                    <span class="text-[10px] font-orbitron">PETUNJUK</span>
+                    <span id="hint-count" class="absolute -top-1 -right-1 bg-fuchsia-600 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center border border-slate-900">3</span>
+                </button>
+            </div>
+
+            <!-- New Game / Difficulty Selector Selector Card -->
+            <div class="cyber-glass p-4 rounded-2xl space-y-3">
+                <label class="text-xs font-orbitron text-cyan-300 block font-bold uppercase tracking-wider">
+                    <i class="fa-solid fa-gamepad mr-1"></i> Mula Permainan Baharu
+                </label>
+                <div class="grid grid-cols-2 gap-2">
+                    <button data-diff="easy" class="btn-diff btn-cyber py-2 text-xs font-orbitron font-bold text-green-400">MUDAH</button>
+                    <button data-diff="medium" class="btn-diff btn-cyber py-2 text-xs font-orbitron font-bold text-cyan-400 active-mode">SEDERHANA</button>
+                    <button data-diff="hard" class="btn-diff btn-cyber py-2 text-xs font-orbitron font-bold text-yellow-400">SUKAR</button>
+                    <button data-diff="expert" class="btn-diff btn-cyber py-2 text-xs font-orbitron font-bold text-fuchsia-400">PAKAR (EXPERT)</button>
+                </div>
+                <button id="btn-auto-notes" class="w-full btn-cyber py-2.5 text-xs font-orbitron text-purple-300 font-bold flex items-center justify-center gap-2 mt-2">
+                    <i class="fa-solid fa-robot"></i> AUTO-NOTE CANDIDATES
+                </button>
+            </div>
+
+        </div>
+
+        <!-- Center Stage: The Creative Holographic Grid Frame -->
+        <div class="lg:col-span-8 flex flex-col items-center justify-center order-1 lg:order-2">
+            
+            <div class="cyber-frame w-full max-w-[480px]">
+                <!-- Outer Corner Cyber Accents -->
+                <div class="absolute -top-3 -left-3 w-6 h-6 border-t-2 border-l-2 border-cyan-400 rounded-tl-lg pointer-events-none"></div>
+                <div class="absolute -top-3 -right-3 w-6 h-6 border-t-2 border-r-2 border-cyan-400 rounded-tr-lg pointer-events-none"></div>
+                <div class="absolute -bottom-3 -left-3 w-6 h-6 border-b-2 border-l-2 border-fuchsia-500 rounded-bl-lg pointer-events-none"></div>
+                <div class="absolute -bottom-3 -right-3 w-6 h-6 border-b-2 border-r-2 border-fuchsia-500 rounded-br-lg pointer-events-none"></div>
+
+                <!-- Main Interactive Sudoku Board -->
+                <div id="sudoku-board" class="sudoku-grid relative">
+                    <!-- 81 Cells generated dynamically in JS -->
+                </div>
+            </div>
+
+            <!-- Virtual Cyber Numpad (Input Pad) -->
+            <div class="w-full max-w-[480px] grid grid-cols-9 gap-1.5 md:gap-2 mt-4">
+                <button class="numpad-btn" data-val="1">1<span class="count-badge" id="count-1">0</span></button>
+                <button class="numpad-btn" data-val="2">2<span class="count-badge" id="count-2">0</span></button>
+                <button class="numpad-btn" data-val="3">3<span class="count-badge" id="count-3">0</span></button>
+                <button class="numpad-btn" data-val="4">4<span class="count-badge" id="count-4">0</span></button>
+                <button class="numpad-btn" data-val="5">5<span class="count-badge" id="count-5">0</span></button>
+                <button class="numpad-btn" data-val="6">6<span class="count-badge" id="count-6">0</span></button>
+                <button class="numpad-btn" data-val="7">7<span class="count-badge" id="count-7">0</span></button>
+                <button class="numpad-btn" data-val="8">8<span class="count-badge" id="count-8">0</span></button>
+                <button class="numpad-btn" data-val="9">9<span class="count-badge" id="count-9">0</span></button>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Victory / Game Over Cyber Overlay Modal -->
+    <div id="game-modal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-xl z-50 hidden flex items-center justify-center p-4">
+        <div class="cyber-glass p-6 md:p-8 rounded-3xl max-w-md w-full text-center space-y-6 border border-cyan-500/50 shadow-2xl shadow-cyan-500/30">
+            <div class="w-20 h-20 mx-auto rounded-full bg-gradient-to-tr from-cyan-400 to-fuchsia-600 flex items-center justify-center shadow-lg shadow-cyan-400/50">
+                <i id="modal-icon" class="fa-solid fa-trophy text-4xl text-slate-950"></i>
+            </div>
+
+            <div class="space-y-2">
+                <h2 id="modal-title" class="font-orbitron text-2xl md:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-fuchsia-400 to-yellow-300">
+                    REKOD CYBER TERCAPAI!
+                </h2>
+                <p id="modal-subtitle" class="text-xs text-slate-300 font-medium">Matriks Sudoku Telah Berjaya Diselesaikan.</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 bg-slate-950/80 p-4 rounded-2xl border border-slate-800 text-left">
+                <div>
+                    <span class="text-[10px] font-orbitron text-slate-400 uppercase">Jumlah Masa</span>
+                    <p id="modal-time" class="font-orbitron font-bold text-cyan-400 text-lg">04:25</p>
+                </div>
+                <div>
+                    <span class="text-[10px] font-orbitron text-slate-400 uppercase">Jumlah Skor</span>
+                    <p id="modal-score" class="font-orbitron font-bold text-yellow-400 text-lg">12,450</p>
+                </div>
+            </div>
+
+            <button id="modal-btn-restart" class="w-full btn-cyber py-3.5 bg-gradient-to-r from-cyan-500 to-fuchsia-600 font-orbitron font-black text-slate-950 tracking-wider text-base rounded-xl shadow-lg shadow-cyan-500/40">
+                MAIN SEMULA (NEW MATRIX)
+            </button>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * NEONGRID 2099 - ADVANCED CYBER SUDOKU ENGINE
+         * Features: Procedural Space Background with Animated Rocket & Nebulas, Web Audio Synth, Generator & Solver, Auto-Candidates.
+         */
+
+        // --- 1. MOVING CYBER SPACE BACKGROUND WITH ROCKET (3D CANVAS) ---
+        class CyberBackground {
+            constructor() {
+                this.canvas = document.getElementById('bg-canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.resize();
+                
+                // Stars configuration
+                this.stars = Array.from({ length: 180 }, () => ({
+                    x: Math.random() * this.width,
+                    y: Math.random() * this.height,
+                    z: Math.random() * 1000 + 1,
+                    size: Math.random() * 2 + 0.8,
+                    color: Math.random() > 0.3 ? '#00f0ff' : (Math.random() > 0.5 ? '#ff007f' : '#ffe600')
+                }));
+
+                // Shooting Stars / Comets
+                this.comets = [];
+
+                // Rocket configuration
+                this.rocket = {
+                    x: -100,
+                    y: this.height * 0.3,
+                    vx: 2.2,
+                    vy: -0.6,
+                    angle: Math.atan2(-0.6, 2.2),
+                    thrusterParticles: []
+                };
+
+                window.addEventListener('resize', () => this.resize());
+            }
+
+            resize() {
+                this.width = this.canvas.width = window.innerWidth;
+                this.height = this.canvas.height = window.innerHeight;
+            }
+
+            updateAndRender() {
+                // Deep Space Gradient Background
+                const bgGradient = this.ctx.createLinearGradient(0, 0, 0, this.height);
+                bgGradient.addColorStop(0, '#020308');
+                bgGradient.addColorStop(0.5, '#060a17');
+                bgGradient.addColorStop(1, '#020308');
+                this.ctx.fillStyle = bgGradient;
+                this.ctx.fillRect(0, 0, this.width, this.height);
+
+                // Render Galactic Nebulas (Glow Effects)
+                this.drawNebula(this.width * 0.2, this.height * 0.3, 300, 'rgba(0, 240, 255, 0.08)');
+                this.drawNebula(this.width * 0.8, this.height * 0.7, 350, 'rgba(255, 0, 127, 0.08)');
+                this.drawNebula(this.width * 0.5, this.height * 0.2, 250, 'rgba(176, 38, 255, 0.06)');
+
+                // Render Space Stars with Depth Parallax
+                this.stars.forEach(s => {
+                    s.z -= 1.5;
+                    if (s.z <= 0) {
+                        s.z = 1000;
+                        s.x = Math.random() * this.width;
+                        s.y = Math.random() * this.height;
+                    }
+
+                    const k = 400 / s.z;
+                    const px = (s.x - this.width / 2) * k + this.width / 2;
+                    const py = (s.y - this.height / 2) * k + this.height / 2;
+
+                    if (px >= 0 && px < this.width && py >= 0 && py < this.height) {
+                        const alpha = Math.min(1, (1000 - s.z) / 700);
+                        this.ctx.fillStyle = s.color;
+                        this.ctx.globalAlpha = alpha;
+                        this.ctx.beginPath();
+                        this.ctx.arc(px, py, s.size * k * 0.6, 0, Math.PI * 2);
+                        this.ctx.fill();
+                    }
+                });
+                this.ctx.globalAlpha = 1.0;
+
+                // Random Comets / Shooting Stars
+                if (Math.random() < 0.02) {
+                    this.comets.push({
+                        x: Math.random() * this.width * 1.5,
+                        y: -50,
+                        length: Math.random() * 80 + 40,
+                        speed: Math.random() * 12 + 8,
+                        alpha: 1
+                    });
+                }
+
+                this.comets.forEach((c, idx) => {
+                    c.x -= c.speed;
+                    c.y += c.speed * 0.7;
+                    c.alpha -= 0.015;
+
+                    this.ctx.strokeStyle = `rgba(0, 240, 255, ${c.alpha})`;
+                    this.ctx.lineWidth = 2;
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(c.x, c.y);
+                    this.ctx.lineTo(c.x + c.length, c.y - c.length * 0.7);
+                    this.ctx.stroke();
+
+                    if (c.alpha <= 0) this.comets.splice(idx, 1);
+                });
+
+                // Update & Render Flying Cyber Rocket
+                this.updateAndDrawRocket();
+
+                requestAnimationFrame(() => this.updateAndRender());
+            }
+
+            drawNebula(x, y, radius, color) {
+                const grad = this.ctx.createRadialGradient(x, y, 0, x, y, radius);
+                grad.addColorStop(0, color);
+                grad.addColorStop(1, 'transparent');
+                this.ctx.fillStyle = grad;
+                this.ctx.beginPath();
+                this.ctx.arc(x, y, radius, 0, Math.PI * 2);
+                this.ctx.fill();
+            }
+
+            updateAndDrawRocket() {
+                const r = this.rocket;
+
+                // Move rocket
+                r.x += r.vx;
+                r.y += r.vy;
+
+                // Reset position if rocket flies off-screen
+                if (r.x > this.width + 150 || r.y < -150) {
+                    r.x = -150;
+                    r.y = this.height * (0.4 + Math.random() * 0.5);
+                    r.vy = - (Math.random() * 0.5 + 0.3);
+                    r.vx = Math.random() * 0.8 + 2.0;
+                    r.angle = Math.atan2(r.vy, r.vx);
+                }
+
+                // Generate Thruster Particles
+                for (let i = 0; i < 3; i++) {
+                    r.thrusterParticles.push({
+                        x: r.x - Math.cos(r.angle) * 35,
+                        y: r.y - Math.sin(r.angle) * 35,
+                        vx: -Math.cos(r.angle) * (Math.random() * 3 + 2) + (Math.random() - 0.5),
+                        vy: -Math.sin(r.angle) * (Math.random() * 3 + 2) + (Math.random() - 0.5),
+                        size: Math.random() * 5 + 3,
+                        alpha: 1,
+                        color: Math.random() > 0.4 ? '#00f0ff' : (Math.random() > 0.5 ? '#ff007f' : '#ffe600')
+                    });
+                }
+
+                // Draw Thruster Trail Particles
+                r.thrusterParticles.forEach((p, index) => {
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.alpha -= 0.025;
+                    p.size *= 0.95;
+
+                    this.ctx.fillStyle = p.color;
+                    this.ctx.globalAlpha = Math.max(0, p.alpha);
+                    this.ctx.beginPath();
+                    this.ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                    this.ctx.fill();
+
+                    if (p.alpha <= 0) r.thrusterParticles.splice(index, 1);
+                });
+                this.ctx.globalAlpha = 1.0;
+
+                // Draw Rocket Body (SVG Path style on Canvas)
+                this.ctx.save();
+                this.ctx.translate(r.x, r.y);
+                this.ctx.rotate(r.angle);
+
+                // Rocket Outer Glow
+                this.ctx.shadowBlur = 20;
+                this.ctx.shadowColor = '#00f0ff';
+
+                // Main Fuselage / Body
+                this.ctx.fillStyle = '#1e293b';
+                this.ctx.strokeStyle = '#00f0ff';
+                this.ctx.lineWidth = 2;
+
+                this.ctx.beginPath();
+                this.ctx.moveTo(35, 0);
+                this.ctx.quadraticCurveTo(10, -12, -25, -12);
+                this.ctx.lineTo(-25, 12);
+                this.ctx.quadraticCurveTo(10, 12, 35, 0);
+                this.ctx.closePath();
+                this.ctx.fill();
+                this.ctx.stroke();
+
+                // Wings / Fins
+                this.ctx.fillStyle = '#ff007f';
+                this.ctx.beginPath();
+                this.ctx.moveTo(-10, -12);
+                this.ctx.lineTo(-28, -24);
+                this.ctx.lineTo(-22, -10);
+                this.ctx.closePath();
+                this.ctx.fill();
+
+                this.ctx.beginPath();
+                this.ctx.moveTo(-10, 12);
+                this.ctx.lineTo(-28, 24);
+                this.ctx.lineTo(-22, 10);
+                this.ctx.closePath();
+                this.ctx.fill();
+
+                // Cockpit Glass Window (Glow Cyan)
+                this.ctx.fillStyle = '#00f0ff';
+                this.ctx.beginPath();
+                this.ctx.arc(10, 0, 5, 0, Math.PI * 2);
+                this.ctx.fill();
+
+                // Thruster Nozzle
+                this.ctx.fillStyle = '#ffe600';
+                this.ctx.fillRect(-30, -6, 5, 12);
+
+                this.ctx.restore();
+            }
+        }
+
+        // --- 2. WEB AUDIO SYNTHESIZER ---
+        class CyberAudio {
+            constructor() {
+                this.ctx = null;
+                this.enabled = true;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playTone(freq, type = 'sine', duration = 0.1, vol = 0.1) {
+                if (!this.enabled || !this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + duration);
+                } catch(e) {}
+            }
+
+            playSelect() { this.playTone(600, 'sine', 0.05, 0.08); }
+            playInput() { this.playTone(800, 'triangle', 0.08, 0.1); }
+            playError() { 
+                this.playTone(180, 'sawtooth', 0.2, 0.15); 
+                setTimeout(() => this.playTone(140, 'sawtooth', 0.2, 0.15), 100);
+            }
+            playErase() { this.playTone(350, 'square', 0.08, 0.06); }
+            playVictory() {
+                if (!this.enabled || !this.ctx) return;
+                const notes = [523.25, 659.25, 783.99, 1046.50];
+                notes.forEach((f, i) => {
+                    setTimeout(() => this.playTone(f, 'triangle', 0.3, 0.15), i * 120);
+                });
+            }
+        }
+
+        // --- 3. SUDOKU GENERATOR & SOLVER ENGINE ---
+        class SudokuEngine {
+            static isValid(board, row, col, num) {
+                for (let i = 0; i < 9; i++) {
+                    if (board[row][i] === num && i !== col) return false;
+                    if (board[i][col] === num && i !== row) return false;
+                    
+                    const boxRow = 3 * Math.floor(row / 3) + Math.floor(i / 3);
+                    const boxCol = 3 * Math.floor(col / 3) + (i % 3);
+                    if (board[boxRow][boxCol] === num && (boxRow !== row || boxCol !== col)) return false;
+                }
+                return true;
+            }
+
+            static solve(board) {
+                for (let r = 0; r < 9; r++) {
+                    for (let c = 0; c < 9; c++) {
+                        if (board[r][c] === 0) {
+                            const nums = [1,2,3,4,5,6,7,8,9].sort(() => Math.random() - 0.5);
+                            for (let num of nums) {
+                                if (this.isValid(board, r, c, num)) {
+                                    board[r][c] = num;
+                                    if (this.solve(board)) return true;
+                                    board[r][c] = 0;
+                                }
+                            }
+                            return false;
+                        }
+                    }
+                }
+                return true;
+            }
+
+            static generatePuzzle(difficulty = 'medium') {
+                // Generate full solved board
+                const solution = Array.from({ length: 9 }, () => Array(9).fill(0));
+                this.solve(solution);
+
+                // Clone for puzzle board
+                const puzzle = solution.map(row => [...row]);
+
+                // Determine removals based on difficulty
+                const removalsMap = {
+                    easy: 32,
+                    medium: 44,
+                    hard: 52,
+                    expert: 58
+                };
+                let toRemove = removalsMap[difficulty] || 44;
+
+                while (toRemove > 0) {
+                    const r = Math.floor(Math.random() * 9);
+                    const c = Math.floor(Math.random() * 9);
+                    if (puzzle[r][c] !== 0) {
+                        puzzle[r][c] = 0;
+                        toRemove--;
+                    }
+                }
+
+                return { puzzle, solution };
+            }
+        }
+
+        // --- 4. MAIN GAME STATE CONTROLLER ---
+        class NeonSudokuGame {
+            constructor() {
+                this.audio = new CyberAudio();
+                this.bg = new CyberBackground();
+                this.bg.updateAndRender();
+
+                this.boardEl = document.getElementById('sudoku-board');
+                this.selectedCell = null; // { row, col }
+                this.notesMode = false;
+
+                this.difficulty = 'medium';
+                this.puzzle = [];
+                this.solution = [];
+                this.currentGrid = [];
+                this.notesGrid = []; // 9x9 array of Set()
+
+                this.history = []; // For Undo feature
+                this.mistakes = 0;
+                this.maxMistakes = 3;
+                this.score = 1000;
+                this.hintsLeft = 3;
+
+                this.timer = 0;
+                this.timerInterval = null;
+
+                this.initUI();
+                this.startNewGame('medium');
+            }
+
+            startNewGame(diff = 'medium') {
+                this.difficulty = diff;
+                const generated = SudokuEngine.generatePuzzle(diff);
+                this.puzzle = generated.puzzle;
+                this.solution = generated.solution;
+
+                this.currentGrid = this.puzzle.map(row => [...row]);
+                this.notesGrid = Array.from({ length: 9 }, () => 
+                    Array.from({ length: 9 }, () => new Set())
+                );
+
+                this.history = [];
+                this.mistakes = 0;
+                this.score = diff === 'easy' ? 1000 : diff === 'medium' ? 2000 : diff === 'hard' ? 3500 : 5000;
+                this.selectedCell = null;
+
+                this.updateHUD();
+                this.renderBoard();
+                this.startTimer();
+            }
+
+            startTimer() {
+                if (this.timerInterval) clearInterval(this.timerInterval);
+                this.timer = 0;
+                this.timerInterval = setInterval(() => {
+                    this.timer++;
+                    const m = Math.floor(this.timer / 60).toString().padStart(2, '0');
+                    const s = (this.timer % 60).toString().padStart(2, '0');
+                    document.getElementById('timer-display').innerText = `${m}:${s}`;
+                }, 1000);
+            }
+
+            renderBoard() {
+                this.boardEl.innerHTML = '';
+                for (let r = 0; r < 9; r++) {
+                    for (let c = 0; c < 9; c++) {
+                        const cell = document.createElement('div');
+                        cell.className = 'sudoku-cell';
+                        cell.dataset.row = r;
+                        cell.dataset.col = c;
+
+                        const val = this.currentGrid[r][c];
+                        const isGiven = this.puzzle[r][c] !== 0;
+
+                        if (isGiven) {
+                            cell.classList.add('given');
+                            cell.innerText = val;
+                        } else if (val !== 0) {
+                            cell.classList.add('user-input');
+                            cell.innerText = val;
+                        } else {
+                            // Render candidate notes grid
+                            const notesContainer = document.createElement('div');
+                            notesContainer.className = 'notes-grid';
+                            for (let n = 1; n <= 9; n++) {
+                                const noteSpan = document.createElement('span');
+                                noteSpan.className = 'note-num';
+                                noteSpan.innerText = this.notesGrid[r][c].has(n) ? n : '';
+                                notesContainer.appendChild(noteSpan);
+                            }
+                            cell.appendChild(notesContainer);
+                        }
+
+                        cell.addEventListener('click', () => this.selectCell(r, c));
+                        this.boardEl.appendChild(cell);
+                    }
+                }
+                this.updateHighlights();
+                this.updateNumpadCounts();
+            }
+
+            selectCell(r, c) {
+                this.audio.init();
+                this.audio.playSelect();
+                this.selectedCell = { row: r, col: c };
+                this.updateHighlights();
+            }
+
+            updateHighlights() {
+                const cells = document.querySelectorAll('.sudoku-cell');
+                const sel = this.selectedCell;
+
+                cells.forEach(cell => {
+                    const r = parseInt(cell.dataset.row);
+                    const c = parseInt(cell.dataset.col);
+                    cell.classList.remove('selected', 'highlighted', 'same-num');
+
+                    if (!sel) return;
+
+                    const selVal = this.currentGrid[sel.row][sel.col];
+
+                    if (r === sel.row && c === sel.col) {
+                        cell.classList.add('selected');
+                    } else if (r === sel.row || c === sel.col || 
+                        (Math.floor(r/3) === Math.floor(sel.row/3) && Math.floor(c/3) === Math.floor(sel.col/3))) {
+                        cell.classList.add('highlighted');
+                    }
+
+                    if (selVal !== 0 && this.currentGrid[r][c] === selVal) {
+                        cell.classList.add('same-num');
+                    }
+                });
+            }
+
+            handleInput(num) {
+                if (!this.selectedCell) return;
+                const { row: r, col: c } = this.selectedCell;
+
+                // Cannot edit initial puzzle given cells
+                if (this.puzzle[r][c] !== 0) return;
+
+                this.audio.init();
+
+                // Save State for Undo
+                this.history.push({
+                    grid: this.currentGrid.map(row => [...row]),
+                    notes: this.notesGrid.map(row => row.map(s => new Set(s))),
+                    score: this.score,
+                    mistakes: this.mistakes
+                });
+
+                if (this.notesMode) {
+                    // Toggle Candidate Note
+                    if (this.notesGrid[r][c].has(num)) {
+                        this.notesGrid[r][c].delete(num);
+                    } else {
+                        this.notesGrid[r][c].add(num);
+                    }
+                    this.audio.playInput();
+                } else {
+                    // Direct Number Input
+                    if (this.solution[r][c] === num) {
+                        this.currentGrid[r][c] = num;
+                        this.notesGrid[r][c].clear();
+                        this.score += 100;
+                        this.audio.playInput();
+
+                        // Auto-remove number from peer notes
+                        this.removeCandidateFromPeers(r, c, num);
+                        this.checkVictory();
+                    } else {
+                        // Error Input
+                        this.mistakes++;
+                        this.score = Math.max(0, this.score - 150);
+                        this.audio.playError();
+                        
+                        // Flash Error Animation
+                        const cell = document.querySelector(`[data-row="${r}"][data-col="${c}"]`);
+                        if (cell) {
+                            cell.classList.add('error');
+                            setTimeout(() => cell.classList.remove('error'), 500);
+                        }
+
+                        if (this.mistakes >= this.maxMistakes) {
+                            this.triggerGameOver();
+                        }
+                    }
+                }
+
+                this.updateHUD();
+                this.renderBoard();
+            }
+
+            removeCandidateFromPeers(row, col, num) {
+                for (let i = 0; i < 9; i++) {
+                    this.notesGrid[row][i].delete(num);
+                    this.notesGrid[i][col].delete(num);
+                    const boxRow = 3 * Math.floor(row / 3) + Math.floor(i / 3);
+                    const boxCol = 3 * Math.floor(col / 3) + (i % 3);
+                    this.notesGrid[boxRow][boxCol].delete(num);
+                }
+            }
+
+            eraseCell() {
+                if (!this.selectedCell) return;
+                const { row: r, col: c } = this.selectedCell;
+                if (this.puzzle[r][c] !== 0) return;
+
+                this.audio.init();
+                this.audio.playErase();
+
+                this.history.push({
+                    grid: this.currentGrid.map(row => [...row]),
+                    notes: this.notesGrid.map(row => row.map(s => new Set(s)))
+                });
+
+                this.currentGrid[r][c] = 0;
+                this.notesGrid[r][c].clear();
+                this.renderBoard();
+            }
+
+            undo() {
+                if (this.history.length === 0) return;
+                const last = this.history.pop();
+                this.currentGrid = last.grid;
+                this.notesGrid = last.notes;
+                if (last.score !== undefined) this.score = last.score;
+                if (last.mistakes !== undefined) this.mistakes = last.mistakes;
+
+                this.audio.playSelect();
+                this.updateHUD();
+                this.renderBoard();
+            }
+
+            giveHint() {
+                if (this.hintsLeft <= 0 || !this.selectedCell) return;
+                const { row: r, col: c } = this.selectedCell;
+
+                if (this.puzzle[r][c] !== 0 || this.currentGrid[r][c] === this.solution[r][c]) return;
+
+                this.hintsLeft--;
+                this.currentGrid[r][c] = this.solution[r][c];
+                this.notesGrid[r][c].clear();
+                this.removeCandidateFromPeers(r, c, this.solution[r][c]);
+
+                document.getElementById('hint-count').innerText = this.hintsLeft;
+                this.audio.playVictory();
+                this.renderBoard();
+                this.checkVictory();
+            }
+
+            autoFillCandidates() {
+                this.audio.init();
+                this.audio.playSelect();
+
+                for (let r = 0; r < 9; r++) {
+                    for (let c = 0; c < 9; c++) {
+                        if (this.currentGrid[r][c] === 0) {
+                            this.notesGrid[r][c].clear();
+                            for (let n = 1; n <= 9; n++) {
+                                if (SudokuEngine.isValid(this.currentGrid, r, c, n)) {
+                                    this.notesGrid[r][c].add(n);
+                                }
+                            }
+                        }
+                    }
+                }
+                this.renderBoard();
+            }
+
+            updateNumpadCounts() {
+                const counts = Array(10).fill(0);
+                for (let r = 0; r < 9; r++) {
+                    for (let c = 0; c < 9; c++) {
+                        if (this.currentGrid[r][c] !== 0) {
+                            counts[this.currentGrid[r][c]]++;
+                        }
+                    }
+                }
+
+                for (let n = 1; n <= 9; n++) {
+                    const badge = document.getElementById(`count-${n}`);
+                    const btn = document.querySelector(`.numpad-btn[data-val="${n}"]`);
+                    const remaining = 9 - counts[n];
+                    if (badge) badge.innerText = remaining > 0 ? remaining : '✓';
+                    if (btn) {
+                        if (remaining === 0) {
+                            btn.classList.add('opacity-30', 'pointer-events-none');
+                        } else {
+                            btn.classList.remove('opacity-30', 'pointer-events-none');
+                        }
+                    }
+                }
+            }
+
+            checkVictory() {
+                for (let r = 0; r < 9; r++) {
+                    for (let c = 0; c < 9; c++) {
+                        if (this.currentGrid[r][c] !== this.solution[r][c]) return;
+                    }
+                }
+
+                // Complete Victory Trigger!
+                clearInterval(this.timerInterval);
+                this.audio.playVictory();
+
+                confetti({
+                    particleCount: 120,
+                    spread: 80,
+                    origin: { y: 0.6 }
+                });
+
+                document.getElementById('modal-title').innerText = "SELESAI DENGAN CEMERLANG!";
+                document.getElementById('modal-title').className = "font-orbitron text-2xl font-black text-yellow-400 glow-yellow";
+                document.getElementById('modal-subtitle').innerText = "Anda telah menguasai Matriks Neon Grid!";
+                document.getElementById('modal-time').innerText = document.getElementById('timer-display').innerText;
+                document.getElementById('modal-score').innerText = this.score.toLocaleString();
+                document.getElementById('modal-icon').className = "fa-solid fa-trophy text-4xl text-slate-950";
+                document.getElementById('game-modal').classList.remove('hidden');
+            }
+
+            triggerGameOver() {
+                clearInterval(this.timerInterval);
+                this.audio.playError();
+
+                document.getElementById('modal-title').innerText = "MATRIKS TERPUTUS (GAME OVER)";
+                document.getElementById('modal-title').className = "font-orbitron text-2xl font-black text-rose-500 glow-magenta";
+                document.getElementById('modal-subtitle').innerText = "Kesalahan maksimum tercapai. Cuba lagi!";
+                document.getElementById('modal-time').innerText = document.getElementById('timer-display').innerText;
+                document.getElementById('modal-score').innerText = this.score.toLocaleString();
+                document.getElementById('modal-icon').className = "fa-solid fa-triangle-exclamation text-4xl text-slate-950";
+                document.getElementById('game-modal').classList.remove('hidden');
+            }
+
+            updateHUD() {
+                document.getElementById('score-display').innerText = this.score.toLocaleString('en-US', { minimumIntegerDigits: 6, useGrouping: false });
+                document.getElementById('mistake-display').innerText = `${this.mistakes} / ${this.maxMistakes}`;
+                document.getElementById('diff-badge').innerText = this.difficulty;
+            }
+
+            initUI() {
+                // Numpad button click bindings
+                document.querySelectorAll('.numpad-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const val = parseInt(btn.dataset.val);
+                        this.handleInput(val);
+                    });
+                });
+
+                // Keyboard listener
+                document.addEventListener('keydown', (e) => {
+                    if (e.key >= '1' && e.key <= '9') {
+                        this.handleInput(parseInt(e.key));
+                    } else if (e.key === 'Backspace' || e.key === 'Delete') {
+                        this.eraseCell();
+                    } else if (e.key === 'n' || e.key === 'N') {
+                        document.getElementById('tool-notes').click();
+                    } else if (e.key === 'z' || e.key === 'Z') {
+                        this.undo();
+                    }
+                });
+
+                // Action Tools
+                document.getElementById('tool-notes').addEventListener('click', () => {
+                    this.notesMode = !this.notesMode;
+                    const btn = document.getElementById('tool-notes');
+                    const status = document.getElementById('notes-status');
+                    if (this.notesMode) {
+                        btn.classList.add('active-mode');
+                        status.innerText = "NOTA: ON";
+                    } else {
+                        btn.classList.remove('active-mode');
+                        status.innerText = "NOTA: OFF";
+                    }
+                });
+
+                document.getElementById('tool-undo').addEventListener('click', () => this.undo());
+                document.getElementById('tool-erase').addEventListener('click', () => this.eraseCell());
+                document.getElementById('tool-hint').addEventListener('click', () => this.giveHint());
+                document.getElementById('btn-auto-notes').addEventListener('click', () => this.autoFillCandidates());
+
+                // Difficulty selectors
+                document.querySelectorAll('.btn-diff').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        document.querySelectorAll('.btn-diff').forEach(b => b.classList.remove('active-mode'));
+                        btn.classList.add('active-mode');
+                        this.startNewGame(btn.dataset.diff);
+                    });
+                });
+
+                // Audio Toggle
+                document.getElementById('btn-audio').addEventListener('click', () => {
+                    this.audio.enabled = !this.audio.enabled;
+                    document.getElementById('audio-icon').className = this.audio.enabled ? 'fa-solid fa-volume-high' : 'fa-solid fa-volume-xmark';
+                });
+
+                // Modal restart button
+                document.getElementById('modal-btn-restart').addEventListener('click', () => {
+                    document.getElementById('game-modal').classList.add('hidden');
+                    this.startNewGame(this.difficulty);
+                });
+            }
+        }
+
+        // Initialize Game Instance on Page Load
+        window.addEventListener('load', () => {
+            window.sudokuApp = new NeonSudokuGame();
+        });
+    </script>
+</body>
+</html>
